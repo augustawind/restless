@@ -36,12 +36,12 @@ instance ToJSON (CI S8.ByteString) where
 
 instance FromJSON Proxy where
     parseJSON = withObject "Proxy" $ \o ->
-        Proxy <$> o .: "proxyHost" <*> o .: "proxyPort"
+        Proxy <$> o .: "host" <*> o .: "port"
 
 instance ToJSON Proxy where
     toJSON p = object
-        [ "proxyHost" .= toJSON (proxyHost p)
-        , "proxyPort" .= toJSON (proxyPort p)
+        [ "host" .= toJSON (proxyHost p)
+        , "port" .= toJSON (proxyPort p)
         ]
 
 instance FromJSON RequestBody where
@@ -57,17 +57,18 @@ instance ToJSON RequestBody where
 
 instance FromJSON Request where
     parseJSON = withObject "Request" $ \o -> do
-        method <- o .: "method"
-        secure <- o .: "secure"
-        host <- o .: "host"
-        port <- o .: "port"
-        path <- o .: "path"
-        queryString <- o .: "queryString"
-        requestHeaders <- o .: "requestHeaders"
-        requestBody <- o .: "requestBody"
-        return defaultRequest { method = method
+        host           <- o .:  "host"
+        method         <- o .:? "method"         .!= "GET"
+        secure         <- o .:? "secure"         .!= False
+        port           <- o .:? "port"           .!= 80
+        path           <- o .:? "path"           .!= "/"
+        queryString    <- o .:? "queryString"    .!= ""
+        requestHeaders <- o .:? "requestHeaders" .!= []
+        requestBody    <- o .:? "requestBody"    .!= ""
+        proxy          <- o .:? "proxy" :: Parser (Maybe Proxy)
+        return defaultRequest { host = host
+                              , method = method
                               , secure = secure
-                              , host = host
                               , port = port
                               , path = path
                               , queryString = queryString
@@ -76,7 +77,7 @@ instance FromJSON Request where
                               }
 
 instance ToJSON Request where
-    toJSON r = object [ "method" .= show (method r)
+    toJSON r = object [ "method" .= method r
                       , "secure" .= secure r
                       , "host" .= host r
                       , "port" .= port r
@@ -89,9 +90,8 @@ instance ToJSON Request where
 
 someFunc :: IO ()
 someFunc = do
-    let r = Yaml.encode defaultRequest
-    S8.putStrLn r
-    let r' = Yaml.decodeEither r :: Either String Request
-    print r'
-    let r'' = Yaml.encode r'
-    S8.putStrLn r''
+    Yaml.encodeFile "requests.yaml" (replicate 5 defaultRequest)
+    rs <- Yaml.decodeFile "requests.yaml" :: IO (Maybe [Request])
+    print rs
+    let reqs = Yaml.encode rs
+    S8.putStrLn reqs
