@@ -6,15 +6,8 @@ module Restless
     ) where
 
 import Data.Aeson
-import Data.Aeson.Types
 import qualified Data.Text as T
-import qualified Data.ByteString.Lazy.Char8 as L8
-import qualified Data.ByteString.Char8 as S8
-import qualified Data.CaseInsensitive as CI
 import qualified Data.HashMap.Strict as HM
-import Data.Maybe (fromMaybe)
-import qualified Data.Yaml as Yaml
-import qualified Network.HTTP.Client as Http
 
 -----------------------------------------------------------------------
 --  JSONRequest
