@@ -10,11 +10,17 @@ import Data.Aeson.Types
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Char8 as S8
-import Data.CaseInsensitive (CI, mk, original)
+import qualified Data.CaseInsensitive as CI
 import qualified Data.Yaml as Yaml
 import Network.HTTP.Client
 
 -- Setup instances for serializing/deserializing Requests to/from JSON.
+
+instance (FromJSON a, CI.FoldCase a) => FromJSON (CI.CI a) where
+    parseJSON = fmap CI.mk . parseJSON
+
+instance (ToJSON a, CI.FoldCase a) => ToJSON (CI.CI a) where
+    toJSON = toJSON . CI.original
 
 instance FromJSON L8.ByteString where
     parseJSON = withText "ByteString.Lazy" (return . L8.pack . T.unpack)
@@ -28,12 +34,6 @@ instance FromJSON S8.ByteString where
 instance ToJSON S8.ByteString where
     toJSON = String . T.pack . S8.unpack
 
-instance FromJSON (CI S8.ByteString) where
-    parseJSON =  withText "CI ByteString.Lazy" (return . mk . S8.pack . T.unpack)
-
-instance ToJSON (CI S8.ByteString) where
-    toJSON = String . T.pack . S8.unpack . original
-
 instance FromJSON Proxy where
     parseJSON = withObject "Proxy" $ \o ->
         Proxy <$> o .: "host" <*> o .: "port"
@@ -45,48 +45,50 @@ instance ToJSON Proxy where
         ]
 
 instance FromJSON RequestBody where
-    parseJSON = withText "RequestBody" $
-        return . RequestBodyLBS . L8.pack . T.unpack
+    parseJSON = withText "RequestBody"
+        (return . RequestBodyLBS . L8.pack . T.unpack)
 
 instance ToJSON RequestBody where
-    toJSON r = case r of
-                 RequestBodyLBS l8 -> toJSON l8
-                 RequestBodyBS s8  -> toJSON s8
-                 _ -> error "ToJSON RequestBody only supports\
-                            \RequestBodyLBS and RequestBodyBS"
+    toJSON r =
+        case r of
+          RequestBodyLBS l8 -> toJSON l8
+          RequestBodyBS s8  -> toJSON s8
+          _ -> error "ToJSON RequestBody only supports RequestBodyLBS and\
+                     \ RequestBodyBS constructors."
 
 instance FromJSON Request where
     parseJSON = withObject "Request" $ \o -> do
-        host           <- o .:  "host"
-        method         <- o .:? "method"         .!= "GET"
-        secure         <- o .:? "secure"         .!= False
-        port           <- o .:? "port"           .!= 80
-        path           <- o .:? "path"           .!= "/"
-        queryString    <- o .:? "queryString"    .!= ""
-        requestHeaders <- o .:? "requestHeaders" .!= []
-        requestBody    <- o .:? "requestBody"    .!= ""
-        proxy          <- o .:? "proxy" :: Parser (Maybe Proxy)
-        return defaultRequest { host = host
-                              , method = method
-                              , secure = secure
-                              , port = port
-                              , path = path
-                              , queryString = queryString
-                              , requestHeaders = requestHeaders
-                              , requestBody = requestBody
+        host            <- o .:  "host"
+        method          <- o .:? "method"           .!= "GET"
+        secure          <- o .:? "secure"           .!= False
+        port            <- o .:? "port"             .!= 80
+        path            <- o .:? "path"             .!= "/"
+        queryString     <- o .:? "queryString"      .!= ""
+        requestHeaders  <- o .:? "requestHeaders"   .!= []
+        requestBody     <- o .:? "requestBody"      .!= ""
+        proxy           <- o .:? "proxy" :: Parser (Maybe Proxy)
+        return defaultRequest { host            = host
+                              , method          = method
+                              , secure          = secure
+                              , port            = port
+                              , path            = path
+                              , queryString     = queryString
+                              , requestHeaders  = requestHeaders
+                              , requestBody     = requestBody
                               }
 
 instance ToJSON Request where
-    toJSON r = object [ "method" .= method r
-                      , "secure" .= secure r
-                      , "host" .= host r
-                      , "port" .= port r
-                      , "path" .= path r
-                      , "queryString" .= queryString r
-                      , "requestHeaders" .= requestHeaders r
-                      , "requestBody" .= requestBody r
-                      , "proxy" .= proxy r
-                      ]
+    toJSON r = object
+        [ "method"          .= method r
+        , "secure"          .= secure r
+        , "host"            .= host r
+        , "port"            .= port r
+        , "path"            .= path r
+        , "queryString"     .= queryString r
+        , "requestHeaders"  .= requestHeaders r
+        , "requestBody"     .= requestBody r
+        , "proxy"           .= proxy r
+        ]
 
 someFunc :: IO ()
 someFunc = do
