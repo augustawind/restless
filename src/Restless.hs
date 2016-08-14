@@ -1,7 +1,8 @@
 module Restless
-    ( JSONRequest
+    ( JSONRequest(..)
     , defaultJSONRequest
-    , httpJSON
+    , toHTTPRequest, toHTTPRequest'
+    , doRequest, doRequestTLS
     ) where
 
 import Restless.HTTP

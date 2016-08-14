@@ -2,7 +2,6 @@ module Main where
 
 import qualified Data.Yaml as Yaml
 import qualified Data.ByteString.Char8 as S8
-import Options.Applicative
 
 import Restless
 

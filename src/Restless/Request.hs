@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings, RecordWildCards, FlexibleInstances #-}
 module Restless.Request
     ( JSONRequest(..)
     , defaultJSONRequest
@@ -6,12 +6,14 @@ module Restless.Request
 
 import Data.Aeson
 import qualified Data.ByteString.Char8 as S8
+import qualified Data.CaseInsensitive as CI
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Map as M
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 
 -----------------------------------------------------------------------
--- Data declarations
+-- JSONRequest type.
 
 data JSONRequest = JSONRequest
     { host :: S8.ByteString
@@ -20,8 +22,8 @@ data JSONRequest = JSONRequest
     , port :: Int
     , path :: S8.ByteString
     , queryString :: [(S8.ByteString, Maybe S8.ByteString)]
-    , requestHeaders :: Object
-    , requestBody :: Object
+    , requestHeaders :: [(CI.CI S8.ByteString, S8.ByteString)]
+    , requestBody :: Value
     } deriving (Show, Read, Eq)
 
 defaultJSONRequest = JSONRequest
@@ -31,12 +33,12 @@ defaultJSONRequest = JSONRequest
     , port              = 80
     , path              = "/"
     , queryString       = []
-    , requestHeaders    = HM.empty
-    , requestBody       = HM.empty
+    , requestHeaders    = []
+    , requestBody       = object []
     }
 
 ------------------------------------------------------------------------
---  JSON instances
+--  to/from-JSON instances.
 
 instance FromJSON JSONRequest where
     parseJSON = withObject "JSONRequest" $ \o -> do
@@ -46,8 +48,8 @@ instance FromJSON JSONRequest where
         port            <- o .:? "port"             .!= 80
         path            <- o .:? "path"             .!= "/"
         queryString     <- o .:? "queryString"      .!= []
-        requestHeaders  <- o .:? "requestHeaders"   .!= HM.empty
-        requestBody     <- o .:? "requestBody"      .!= HM.empty
+        requestHeaders  <- o .:? "requestHeaders"   .!= []
+        requestBody     <- o .:? "requestBody"      .!= object []
         return JSONRequest {..}
 
 instance ToJSON JSONRequest where
@@ -67,3 +69,9 @@ instance FromJSON S8.ByteString where
 
 instance ToJSON S8.ByteString where
     toJSON = String . decodeUtf8
+
+instance (FromJSON a, CI.FoldCase a) => FromJSON (CI.CI a) where
+    parseJSON = fmap CI.mk . parseJSON
+
+instance (ToJSON a, CI.FoldCase a) => ToJSON (CI.CI a) where
+    toJSON = toJSON . CI.original
